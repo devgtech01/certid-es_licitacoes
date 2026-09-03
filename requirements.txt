@@ -1,0 +1,4 @@
+# Dependências do projeto
+# Nota: O projeto é executado com Node.js (veja package.json para npm install).
+# Caso utilize integração ou automações em Python com Playwright:
+playwright>=1.49.0
