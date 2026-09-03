@@ -1,0 +1,11 @@
+node_modules/
+/certidoes/
+.perfil-navegador/
+tools/recon-out/
+.claude/
+.agents/
+.gemini/
+.vscode/
+.idea/
+*.log
+.env

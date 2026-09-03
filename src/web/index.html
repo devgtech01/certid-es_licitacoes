@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emissão de Certidões</title>
+<style>
+  :root {
+    --fundo: #f4f5f7; --papel: #fff; --texto: #1c2024; --suave: #6b7280;
+    --linha: #e2e5ea; --acento: #1c5fd6; --ok: #12813f; --erro: #c02525;
+    --alerta: #b45309; --alerta-fundo: #fef3c7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fundo: #14161a; --papel: #1c1f24; --texto: #e8eaed; --suave: #9aa2ad;
+      --linha: #2c3138; --acento: #6ea3ff; --ok: #4ade80; --erro: #f87171;
+      --alerta: #fbbf24; --alerta-fundo: #3a2e10;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fundo); color: var(--texto);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .envelope { max-width: 940px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.02em; }
+  .sub { color: var(--suave); margin: 0 0 28px; font-size: 14px; }
+  .cartao {
+    background: var(--papel); border: 1px solid var(--linha);
+    border-radius: 12px; padding: 22px; margin-bottom: 18px;
+  }
+  label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .dica { font-weight: 400; color: var(--suave); }
+  input[type=text] {
+    width: 100%; padding: 11px 13px; font-size: 16px; font-family: inherit;
+    border: 1px solid var(--linha); border-radius: 8px;
+    background: var(--fundo); color: var(--texto);
+  }
+  input[type=text]:focus { outline: 2px solid var(--acento); outline-offset: -1px; }
+  .campos { display: grid; grid-template-columns: 260px 1fr; gap: 16px; }
+  @media (max-width: 680px) { .campos { grid-template-columns: 1fr; } }
+  fieldset { border: 0; padding: 0; margin: 22px 0 0; }
+  legend { font-weight: 600; font-size: 13px; padding: 0; margin-bottom: 10px; }
+  .lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+  .item {
+    display: flex; gap: 9px; align-items: flex-start; padding: 9px 11px;
+    border: 1px solid var(--linha); border-radius: 8px; cursor: pointer;
+  }
+  .item:hover { border-color: var(--acento); }
+  .item input { margin: 3px 0 0; flex: none; }
+  .item .nome { font-size: 13.5px; }
+  .tag {
+    display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 20px;
+    background: var(--fundo); color: var(--suave); border: 1px solid var(--linha);
+    margin-top: 3px; white-space: nowrap;
+  }
+  .tag.manual { color: var(--alerta); border-color: var(--alerta); }
+  .acoes { display: flex; gap: 10px; align-items: center; margin-top: 22px; flex-wrap: wrap; }
+  button {
+    font: 600 15px/1 inherit; padding: 12px 22px; border-radius: 8px;
+    border: 1px solid transparent; cursor: pointer;
+    background: var(--acento); color: #fff;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.secundario { background: transparent; color: var(--texto); border-color: var(--linha); }
+  .marcadores { display: flex; gap: 12px; font-size: 13px; }
+  .marcadores a { color: var(--acento); cursor: pointer; text-decoration: none; }
+
+  /* faixa de ação humana */
+  #faixa {
+    display: none; background: var(--alerta-fundo); border: 1px solid var(--alerta);
+    border-radius: 12px; padding: 18px 22px; margin-bottom: 18px;
+  }
+  #faixa.ativa { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  #faixa .txt { flex: 1; min-width: 260px; }
+  #faixa strong { display: block; color: var(--alerta); font-size: 13px; letter-spacing: .04em; }
+  #faixa .msg { font-weight: 600; margin-top: 2px; }
+  #faixa .obs { font-size: 13px; color: var(--suave); margin-top: 4px; }
+
+  /* progresso */
+  .linha-cert {
+    display: flex; gap: 12px; align-items: center; padding: 11px 2px;
+    border-bottom: 1px solid var(--linha);
+  }
+  .linha-cert:last-child { border-bottom: 0; }
+  .bolha { width: 20px; text-align: center; flex: none; font-size: 15px; }
+  .girando { display: inline-block; animation: gira 1s linear infinite; }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  .linha-cert .nome { flex: 1; font-size: 14px; }
+  .linha-cert .detalhe { font-size: 12.5px; color: var(--suave); }
+  .linha-cert.falhou .detalhe { color: var(--erro); }
+  .arquivos { font-size: 12.5px; color: var(--suave); margin-top: 2px; }
+  #registro {
+    font: 12.5px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    background: var(--fundo); border: 1px solid var(--linha); border-radius: 8px;
+    padding: 12px 14px; max-height: 220px; overflow: auto; white-space: pre-wrap;
+    margin-top: 16px;
+  }
+  #registro:empty { display: none; }
+  .resumo { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+  .resumo .contagem { font-size: 20px; font-weight: 700; }
+  .oculto { display: none !important; }
+</style>
+</head>
+<body>
+<div class="envelope">
+  <h1>Emissão de Certidões</h1>
+  <p class="sub">Informe o CNPJ e receba as certidões em PDF numa pasta.</p>
+
+  <div id="faixa">
+    <div class="txt">
+      <strong>AÇÃO NECESSÁRIA</strong>
+      <div class="msg" id="faixa-msg"></div>
+      <div class="obs">Resolva na janela do navegador que abriu. Isto some sozinho quando
+        for detectado — o botão abaixo é só para forçar.</div>
+    </div>
+    <button id="btn-continuar">Já resolvi, continuar</button>
+  </div>
+
+  <div class="cartao" id="form">
+    <div class="campos">
+      <div>
+        <label for="cnpj">CNPJ</label>
+        <input type="text" id="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00"
+               autocomplete="off" autofocus>
+      </div>
+      <div>
+        <label for="saida">Pasta de destino <span class="dica">— opcional</span></label>
+        <input type="text" id="saida" placeholder="deixe em branco para usar ./certidoes"
+               autocomplete="off">
+      </div>
+    </div>
+
+    <fieldset>
+      <legend>Certidões
+        <span class="marcadores" style="display:inline-flex; margin-left:10px">
+          <a id="marcar-todas">todas</a><a id="marcar-auto">só as automáticas</a>
+        </span>
+      </legend>
+      <div class="lista" id="lista"></div>
+    </fieldset>
+
+    <div class="acoes">
+      <button id="btn-emitir">Emitir certidões</button>
+      <span class="dica" id="aviso-manual"></span>
+    </div>
+  </div>
+
+  <div class="cartao oculto" id="painel">
+    <div id="progresso"></div>
+    <div id="registro"></div>
+    <div class="resumo oculto" id="resumo">
+      <span class="contagem" id="contagem"></span>
+      <button class="secundario" id="btn-pasta">Abrir pasta</button>
+      <button class="secundario" id="btn-novo">Nova emissão</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let certidoes = [];
+let pastaFinal = '';
+let fonte = null;
+
+// ---------------------------------------------------------------- CNPJ
+function formatarCnpj(v) {
+  const d = v.replace(/\D/g, '').slice(0, 14);
+  let s = d;
+  if (d.length > 2) s = d.slice(0, 2) + '.' + d.slice(2);
+  if (d.length > 5) s = s.slice(0, 6) + '.' + d.slice(5);
+  if (d.length > 8) s = s.slice(0, 10) + '/' + d.slice(8);
+  if (d.length > 12) s = s.slice(0, 15) + '-' + d.slice(12);
+  return s;
+}
+$('#cnpj').addEventListener('input', (e) => { e.target.value = formatarCnpj(e.target.value); });
+
+// ---------------------------------------------------------------- lista
+async function carregar() {
+  certidoes = await (await fetch('/api/certidoes')).json();
+  $('#lista').innerHTML = certidoes.map((c) => `
+    <label class="item">
+      <input type="checkbox" value="${c.id}" checked>
+      <span>
+        <span class="nome">${c.nome}</span><br>
+        <span class="tag ${c.humano && !c.humanoOpcional ? 'manual' : ''}">${
+          !c.humano ? 'automática'
+          : c.humanoOpcional ? 'automática · captcha só se o site pedir'
+          : c.humano === 'login' ? 'precisa do seu login gov.br'
+          : 'você digita o captcha'}</span>
+      </span>
+    </label>`).join('');
+  $('#lista').addEventListener('change', atualizarAviso);
+  atualizarAviso();
+}
+
+const marcadas = () => [...document.querySelectorAll('#lista input:checked')].map((i) => i.value);
+
+function atualizarAviso() {
+  const sel = marcadas();
+  const manuais = certidoes.filter((c) => sel.includes(c.id) && c.humano && !c.humanoOpcional);
+  $('#aviso-manual').textContent = manuais.length
+    ? `${manuais.length} exige${manuais.length > 1 ? 'm' : ''} sua ação (captcha/login) durante a execução`
+    : 'todas as selecionadas rodam sozinhas';
+  $('#btn-emitir').disabled = sel.length === 0;
+}
+
+$('#marcar-todas').onclick = () => {
+  document.querySelectorAll('#lista input').forEach((i) => { i.checked = true; });
+  atualizarAviso();
+};
+$('#marcar-auto').onclick = () => {
+  document.querySelectorAll('#lista input').forEach((i) => {
+    const c = certidoes.find((x) => x.id === i.value);
+    i.checked = !c.humano || c.humanoOpcional;
+  });
+  atualizarAviso();
+};
+
+// ---------------------------------------------------------------- execução
+$('#btn-emitir').onclick = async () => {
+  const r = await fetch('/api/emitir', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cnpj: $('#cnpj').value, saida: $('#saida').value, ids: marcadas() }),
+  });
+  const j = await r.json();
+  if (!r.ok) { alert(j.erro || 'não foi possível iniciar'); return; }
+
+  $('#btn-emitir').disabled = true;
+  $('#painel').classList.remove('oculto');
+  $('#resumo').classList.add('oculto');
+  $('#registro').textContent = '';
+  $('#progresso').innerHTML = certidoes.filter((c) => marcadas().includes(c.id))
+    .map((c) => `<div class="linha-cert" id="c-${c.id}">
+        <span class="bolha">·</span>
+        <span class="nome">${c.nome}<div class="arquivos"></div></span>
+        <span class="detalhe">na fila</span>
+      </div>`).join('');
+  ouvir();
+};
+
+function anotar(texto, nivel) {
+  const reg = $('#registro');
+  const prefixo = { ok: '✓ ', erro: '✗ ', aviso: '! ' }[nivel] || '  ';
+  reg.textContent += prefixo + texto + '\n';
+  reg.scrollTop = reg.scrollHeight;
+}
+
+function ouvir() {
+  fonte?.close();
+  fonte = new EventSource('/api/eventos');
+  fonte.onmessage = (e) => tratar(JSON.parse(e.data));
+}
+
+function tratar(ev) {
+  if (ev.tipo === 'log') anotar(ev.texto, ev.nivel);
+
+  if (ev.tipo === 'empresa' && ev.empresa?.razaoSocial) {
+    anotar(`empresa: ${ev.empresa.razaoSocial}`, 'ok');
+  }
+
+  if (ev.tipo === 'inicio') pastaFinal = ev.pastaSaida;
+
+  if (ev.tipo === 'certidao-inicio') {
+    const el = $('#c-' + ev.id);
+    if (el) {
+      el.querySelector('.bolha').innerHTML = '<span class="girando">◜</span>';
+      el.querySelector('.detalhe').textContent = 'emitindo…';
+    }
+  }
+
+  if (ev.tipo === 'certidao-fim') {
+    const el = $('#c-' + ev.id);
+    if (el) {
+      const bom = ev.status === 'ok';
+      el.classList.toggle('falhou', !bom);
+      el.querySelector('.bolha').textContent = bom ? '✓' : ev.status === 'cancelada' ? '–' : '✗';
+      el.querySelector('.bolha').style.color = bom ? 'var(--ok)' : 'var(--erro)';
+      el.querySelector('.detalhe').textContent = bom ? `${ev.segundos}s` : (ev.erro || ev.status);
+      el.querySelector('.arquivos').textContent = (ev.arquivos || []).join(' · ');
+    }
+  }
+
+  if (ev.tipo === 'precisa-humano') {
+    $('#faixa').classList.add('ativa');
+    $('#faixa-msg').textContent = ev.mensagem;
+    $('#faixa').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (ev.tipo === 'humano-resolvido') $('#faixa').classList.remove('ativa');
+
+  if (ev.tipo === 'erro-fatal') anotar(ev.texto, 'erro');
+
+  if (ev.tipo === 'fim') {
+    pastaFinal = ev.pasta;
+    const ok = ev.resultados.filter((r) => r.status === 'ok').length;
+    $('#contagem').textContent = `${ok}/${ev.resultados.length} certidões`;
+    $('#contagem').style.color = ok === ev.resultados.length ? 'var(--ok)' : 'var(--erro)';
+    $('#resumo').classList.remove('oculto');
+  }
+
+  if (ev.tipo === 'encerrado') {
+    fonte?.close();
+    $('#faixa').classList.remove('ativa');
+    $('#btn-emitir').disabled = false;
+  }
+}
+
+$('#btn-continuar').onclick = () => fetch('/api/continuar', { method: 'POST' });
+$('#btn-pasta').onclick = () => fetch('/api/abrir-pasta', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ pasta: pastaFinal }),
+});
+$('#btn-novo').onclick = () => { $('#painel').classList.add('oculto'); $('#cnpj').focus(); };
+
+carregar();
+</script>
+</body>
+</html>
